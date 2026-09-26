@@ -1,0 +1,299 @@
+{
+ "seed": 20260927,
+ "args": {
+  "base_url": "http://localhost:8000",
+  "model": "GLM-5.3-Flash",
+  "container": "<scrubbed>",
+  "log_file": null,
+  "manual_restart": false,
+  "mode": "all",
+  "p_tokens": 40000,
+  "response_tokens": 240,
+  "page_size": 3072,
+  "recurrent_groups": 7,
+  "vocab_lo": 1000,
+  "vocab_hi": 100000,
+  "publish_wait": 5.0,
+  "warm_tokens": 220000,
+  "evict_tokens": 260000,
+  "evict_count": 2,
+  "evict_hold": 300.0,
+  "filler_tokens": 40000,
+  "max_fillers": 60,
+  "stop_timeout": 60,
+  "restart_between_cells": true,
+  "seed": 20260927,
+  "http_timeout": 900,
+  "out": "<scrubbed>"
+ },
+ "cells": [
+  {
+   "cell": "P0-control",
+   "supersede": false,
+   "pressure": false,
+   "restart": false,
+   "p_tokens": 40000,
+   "response_ckpt": 40239,
+   "a_cached": 0,
+   "a2_cached": 40239,
+   "a2_prefix_hits_delta": 40239.0,
+   "a2_prefix_queries_delta": 40241.0,
+   "a2_external_hits_delta": 0.0,
+   "evict_lines_b_to_a2": 0,
+   "restore_failures": [],
+   "retrieve_misses_tokens_readable_total": [],
+   "expected_missing_per_rank": 0,
+   "flush": {
+    "start": [],
+    "done_s": [],
+    "left": []
+   },
+   "restart_info": null,
+   "verdict": "restored",
+   "expected": "restored",
+   "valid": true,
+   "problems": [],
+   "matches": true
+  },
+  {
+   "cell": "P1-supersede",
+   "supersede": true,
+   "pressure": false,
+   "restart": false,
+   "p_tokens": 40000,
+   "response_ckpt": 40239,
+   "a_cached": 0,
+   "a2_cached": 40239,
+   "a2_prefix_hits_delta": 40239.0,
+   "a2_prefix_queries_delta": 40241.0,
+   "a2_external_hits_delta": 0.0,
+   "evict_lines_b_to_a2": 0,
+   "restore_failures": [],
+   "retrieve_misses_tokens_readable_total": [],
+   "expected_missing_per_rank": 0,
+   "flush": {
+    "start": [],
+    "done_s": [],
+    "left": []
+   },
+   "restart_info": null,
+   "verdict": "restored",
+   "expected": "restored",
+   "valid": true,
+   "problems": [],
+   "matches": true
+  },
+  {
+   "cell": "P2-pressure",
+   "supersede": false,
+   "pressure": true,
+   "restart": false,
+   "p_tokens": 40000,
+   "response_ckpt": 40239,
+   "a_cached": 0,
+   "a2_cached": 40239,
+   "a2_prefix_hits_delta": 0.0,
+   "a2_prefix_queries_delta": 40241.0,
+   "a2_external_hits_delta": 40239.0,
+   "evict_lines_b_to_a2": 4,
+   "restore_failures": [],
+   "retrieve_misses_tokens_readable_total": [],
+   "expected_missing_per_rank": 0,
+   "flush": {
+    "start": [],
+    "done_s": [],
+    "left": []
+   },
+   "restart_info": null,
+   "verdict": "restored",
+   "expected": "restored",
+   "valid": true,
+   "problems": [],
+   "matches": true
+  },
+  {
+   "cell": "P3-supersede+pressure",
+   "supersede": true,
+   "pressure": true,
+   "restart": false,
+   "p_tokens": 40000,
+   "response_ckpt": 40239,
+   "a_cached": 0,
+   "a2_cached": 0,
+   "a2_prefix_hits_delta": 0.0,
+   "a2_prefix_queries_delta": 40241.0,
+   "a2_external_hits_delta": 0.0,
+   "evict_lines_b_to_a2": 2,
+   "restore_failures": [
+    [
+     40239,
+     0.1
+    ],
+    [
+     40000,
+     0.0
+    ],
+    [
+     36864,
+     0.0
+    ]
+   ],
+   "retrieve_misses_tokens_readable_total": [
+    [
+     40239,
+     13,
+     22
+    ],
+    [
+     40239,
+     13,
+     22
+    ],
+    [
+     40000,
+     13,
+     22
+    ],
+    [
+     40000,
+     13,
+     22
+    ],
+    [
+     36864,
+     12,
+     20
+    ],
+    [
+     36864,
+     12,
+     20
+    ]
+   ],
+   "expected_missing_per_rank": 9,
+   "flush": {
+    "start": [],
+    "done_s": [],
+    "left": []
+   },
+   "restart_info": null,
+   "verdict": "failed",
+   "expected": "failed",
+   "valid": true,
+   "problems": [],
+   "matches": true
+  },
+  {
+   "cell": "R0-restart-control",
+   "supersede": false,
+   "pressure": false,
+   "restart": true,
+   "p_tokens": 40000,
+   "response_ckpt": 40239,
+   "a_cached": 0,
+   "a2_cached": 40239,
+   "a2_prefix_hits_delta": 0.0,
+   "a2_prefix_queries_delta": 40241.0,
+   "a2_external_hits_delta": 40239.0,
+   "evict_lines_b_to_a2": 0,
+   "restore_failures": [],
+   "retrieve_misses_tokens_readable_total": [],
+   "expected_missing_per_rank": 0,
+   "flush": {
+    "start": [
+     292
+    ],
+    "done_s": [
+     4.0
+    ],
+    "left": []
+   },
+   "restart_info": {
+    "exit_code": "143"
+   },
+   "verdict": "restored",
+   "expected": "restored",
+   "valid": true,
+   "problems": [],
+   "matches": true
+  },
+  {
+   "cell": "R1-supersede+restart",
+   "supersede": true,
+   "pressure": false,
+   "restart": true,
+   "p_tokens": 40000,
+   "response_ckpt": 40239,
+   "a_cached": 0,
+   "a2_cached": 0,
+   "a2_prefix_hits_delta": 0.0,
+   "a2_prefix_queries_delta": 40241.0,
+   "a2_external_hits_delta": 0.0,
+   "evict_lines_b_to_a2": 0,
+   "restore_failures": [
+    [
+     40239,
+     0.1
+    ],
+    [
+     40000,
+     0.0
+    ],
+    [
+     36864,
+     0.0
+    ]
+   ],
+   "retrieve_misses_tokens_readable_total": [
+    [
+     40239,
+     13,
+     22
+    ],
+    [
+     40239,
+     13,
+     22
+    ],
+    [
+     40000,
+     13,
+     22
+    ],
+    [
+     40000,
+     13,
+     22
+    ],
+    [
+     36864,
+     12,
+     20
+    ],
+    [
+     36864,
+     12,
+     20
+    ]
+   ],
+   "expected_missing_per_rank": 9,
+   "flush": {
+    "start": [
+     66
+    ],
+    "done_s": [
+     1.4
+    ],
+    "left": []
+   },
+   "restart_info": {
+    "exit_code": "143"
+   },
+   "verdict": "failed",
+   "expected": "failed",
+   "valid": true,
+   "problems": [],
+   "matches": true
+  }
+ ]
+}
