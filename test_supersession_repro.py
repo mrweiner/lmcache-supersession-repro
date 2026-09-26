@@ -101,8 +101,8 @@ class TestStallLine(unittest.TestCase):
 
 
 class TestPageMath(unittest.TestCase):
-    """Page model verified against two real retrieves: 131,225 tokens ->
-    51 total pages; the round-11 corpus: 39,966 -> 22, 36,864 -> 20.
+    """    Page model verified against real retrieves: 131,225 tokens ->
+    51 total pages; 39,966 -> 22; 36,864 -> 20.
     total = ceil(tokens / page_size) + recurrent_groups + 1 (auxiliary);
     missing = recurrent_groups + 1 (+1 partial tail when non-aligned)."""
 
