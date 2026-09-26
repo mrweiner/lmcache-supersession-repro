@@ -122,5 +122,53 @@ class TestPageMath(unittest.TestCase):
         self.assertEqual(r.expected_missing(36864), 8)   # block-aligned
 
 
+class TestCellProblems(unittest.TestCase):
+    """The validity judgment is pure; the --serve-queue-threshold path
+    must work without an engine (regression: run_cell once referenced
+    `verdict` before it was assigned when the flag was set)."""
+
+    def base(self, **kw):
+        args = dict(supersede=False, pressure=False, restart=False,
+                    pressured=False, evict_lines=0, flush_done=[4.0],
+                    flush_left=[], restored=True, failed=False,
+                    stall={"engine_queue_s": 0.22, "first_output_s": 0.43},
+                    serve_queue_threshold=None)
+        args.update(kw)
+        return sr.cell_problems(**args)
+
+    def test_clean_control(self):
+        self.assertEqual(self.base(), [])
+
+    def test_threshold_external_restored(self):
+        self.assertEqual(
+            self.base(supersede=True, pressure=True, pressured=True,
+                      evict_lines=1,
+                      serve_queue_threshold=0.1), [])
+
+    def test_threshold_gpu_served_flagged(self):
+        p = self.base(serve_queue_threshold=0.1,
+                      stall={"engine_queue_s": 0.02})
+        self.assertEqual(len(p), 1)
+        self.assertIn("GPU-local", p[0])
+
+    def test_threshold_off_no_flag(self):
+        self.assertEqual(self.base(stall={"engine_queue_s": 0.02}), [])
+
+    def test_threshold_unclear_restored_not_flagged(self):
+        # only restored cells are flagged; unclear cells get the
+        # serve-path hint instead
+        p = self.base(restored=False, serve_queue_threshold=0.1,
+                      stall={"engine_queue_s": 0.02})
+        self.assertEqual(len(p), 1)
+        self.assertIn("serve path", p[0])
+
+    def test_preconditions(self):
+        self.assertIn("crossing", self.base(pressure=True, pressured=False,
+                                            evict_lines=0)[0])
+        self.assertIn("unintended", self.base(pressure=False,
+                                              evict_lines=2)[0])
+        self.assertIn("flush", self.base(restart=True, flush_done=[])[0])
+
+
 if __name__ == "__main__":
     unittest.main()

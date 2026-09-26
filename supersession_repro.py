@@ -32,25 +32,25 @@ which is NOT an ancestor of B = P + [x] -> exercises sibling marking):
 Expected: only P3 and R1 fail. A cell is INVALID (not a finding) if its
 preconditions are not met in the log/metrics.
 
-Serve-path honesty: on stock builds a *successful* external restore is
-silent - no log line, and vllm:external_prefix_cache_hits_total does not
-count recurrent restores (verified: cached=40000 with the counter flat);
-vllm:prefix_cache_hits_total moves identically for a GPU-local hit and an
-external restore. So a control cell cannot prove its restore took the
-external path. Mitigations, per cell:
+Serve-path honesty: a *successful* external restore logs nothing, but
+two stock signals identify the serve path and agreed cell by cell in
+the verified run: the counter deltas (a2_prefix_hits_delta /
+a2_external_hits_delta - GPU-local: +full / 0; external restore:
+0 / +full) and the per-request stall line's engine queue (~0.2 s
+external lookup park vs ~0.02 s GPU hit). Per cell:
   * restart cells (R0/R1): structurally external - A2 runs on a fresh
     process with an empty prefix cache.
-  * P2/P3: the ~30+ completing fillers cycle the 479k-token KV pool
-    (39 x 40k >> 479k), so A's resident lineage is LRU-evicted long
+  * P2/P3: the ~27 completing fillers cycle the 479k-token KV pool
+    (27 x 40k > 479k), so A's resident lineage is LRU-evicted long
     before A2.
   * P0/P1: the evict step sizes itself against the pool arithmetic
-    (see evict_gpu). In the verified run both came back GPU-LOCAL
-    (stock stall line: engine queue ~0.02 s, first output ~0.19 s,
-    vs ~0.2 s / ~0.4 s on the external path) - they are NOT L1
-    controls; the supersede-only control is not demonstrated on a
-    stock engine by this run. Pass --serve-queue-threshold 0.1 to
-    fail such cells loudly; the finding cells (P3, R1) are immune
-    because their expected result - a failed restore - is loud.
+    (see evict_gpu). In the verified run both came back GPU-LOCAL -
+    both signals agree (prefix hits +full / external 0, engine queue
+    ~0.02 s) - so they are NOT L1 controls; the supersede-only
+    control is not demonstrated on a stock engine by this run. Pass
+    --serve-queue-threshold 0.1 to fail such cells loudly; the
+    finding cells (P3, R1) are immune because their expected
+    result - a failed restore - is loud.
 
 Requirements on the engine: LMCACHE_L2_CHECKPOINT_WRITES=on-evict (or the
 checkpoint_on_evict L2 store policy), --recurrent-checkpoint-policy
@@ -291,13 +291,14 @@ class Runner:
     def evict_gpu(self):
         """Clear the engine's own copy of A's KV from the GPU pool.
 
-        Pool arithmetic (this engine: 479k-token KV pool): an aborted
-        evictor only forces eviction when resident + incoming exceed the
-        pool. A completing warm filler first raises the resident set
-        (~260k with A), then two aborted evictors (260k each) overflow it
-        (260k + 260k > 479k) twice, so A's lineage is LRU-evicted. Aborts
-        never finish prefill, so they publish no prompt checkpoint and
-        add no L1 pressure."""
+        Pool arithmetic (this engine: 479k-token KV pool): an evictor
+        only forces eviction when resident + incoming exceed the pool.
+        A completing warm filler first raises the resident set
+        (~260k with A), then two evictors (260k each, run to the FULL
+        prefill and aborted at the first output token) overflow it
+        (260k + 260k > 479k) twice, so A's lineage is LRU-evicted.
+        The abort lands before the prompt-checkpoint publish, so the
+        evictors store nothing and add no L1 pressure."""
         self.e.complete(self.rand_ids(self.a.warm_tokens), max_tokens=1)
         time.sleep(2)
         for _ in range(self.a.evict_count):
@@ -381,30 +382,13 @@ class Runner:
 
         restored = (a2["cached_tokens"] or 0) >= 0.9 * resp_ckpt and not fails
         failed = bool(fails)
-        # ---- validity (preconditions observed, not intended)
-        problems = []
-        if pressure and not (pressured and evict_lines):
-            problems.append("no watermark crossing logged between B and A2")
-        if not pressure and evict_lines:
-            problems.append("unintended L1 pressure between B and A2")
-        if restart and (not flush["done_s"] or flush["left"]):
-            problems.append("shutdown flush did not complete cleanly")
-        if not restored and not failed:
-            problems.append("A2 cached below threshold with no restore "
-                            "failure lines (GPU-local hit or no offer; "
-                            "stock builds cannot discriminate - see "
-                            "README 'Serve-path honesty')")
-        if (self.a.serve_queue_threshold is not None and stall
-                and verdict == "restored"
-                and stall["engine_queue_s"] < self.a.serve_queue_threshold):
-            problems.append(
-                f"restored cell has engine queue "
-                f"{stall['engine_queue_s']} s (< "
-                f"{self.a.serve_queue_threshold}): A2 was GPU-local, "
-                "not served from LMCache (observed external restores "
-                "park ~0.2 s at the lookup; GPU hits ~0.02 s)")
         expect_fail = supersede and (pressure or restart)
         verdict = "failed" if failed else "restored" if restored else "unclear"
+        # ---- validity (preconditions observed, not intended)
+        problems = cell_problems(
+            supersede, pressure, restart, pressured, len(evict_lines),
+            flush["done_s"], flush["left"], restored, failed, stall,
+            self.a.serve_queue_threshold)
         want_missing = self.expected_missing(resp_ckpt)
         fingerprint = [(int(m.group(1)), int(m.group(3)), int(m.group(4)))
                        for m in misses]
@@ -430,6 +414,34 @@ class Runner:
             "matches": (not problems) and verdict == (
                 "failed" if expect_fail else "restored") and fp_ok,
         }
+
+
+def cell_problems(supersede, pressure, restart, pressured, evict_lines,
+                  flush_done, flush_left, restored, failed, stall,
+                  serve_queue_threshold):
+    """Validity judgment for one cell: problems with the observed
+    preconditions. Pure so tests need no engine."""
+    problems = []
+    if pressure and not (pressured and evict_lines):
+        problems.append("no watermark crossing logged between B and A2")
+    if not pressure and evict_lines:
+        problems.append("unintended L1 pressure between B and A2")
+    if restart and (not flush_done or flush_left):
+        problems.append("shutdown flush did not complete cleanly")
+    if not restored and not failed:
+        problems.append(
+            "A2 cached below threshold with no restore failure lines; "
+            "check a2_prefix_hits_delta / a2_external_hits_delta and "
+            "a2_stall for the serve path (see README 'Serve-path "
+            "honesty')")
+    if (serve_queue_threshold is not None and stall and restored
+            and stall["engine_queue_s"] < serve_queue_threshold):
+        problems.append(
+            f"restored cell has engine queue {stall['engine_queue_s']} s "
+            f"(< {serve_queue_threshold}): A2 was GPU-local, not served "
+            "from LMCache (external restores park ~0.2 s at the lookup; "
+            "GPU hits ~0.02 s)")
+    return problems
 
 
 def main():

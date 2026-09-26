@@ -124,8 +124,8 @@ Serve-path honesty below):
 push A's lineage out of the GPU KV pool there — so they are NOT L1
 controls in this result, and the supersede-only control ("supersession
 alone is harmless") is **not demonstrated on a stock engine by this
-run**; it is shown on the instrumented deployment in the main report
-(round-15 arms with an external-serve guard). Reading the fingerprint:
+run**; it is shown in the accompanying write-up (on an instrumented
+build, with an external-serve guard). Reading the fingerprint:
 a retrieve reports `K of M pages were readable` per rank. At ~40k
 tokens the response checkpoint totals 22 pages (14 attention +
 7 recurrent-state + 1 auxiliary); the finding cells report 13/22 —
@@ -147,19 +147,23 @@ Expected per cell:
 
 ## Serve-path honesty
 
-On stock builds a *successful* external restore is silent: no log
-line, and `vllm:external_prefix_cache_hits_total` does not count
-recurrent restores (verified: `cached_tokens=40000` with the counter
-flat); `vllm:prefix_cache_hits_total` moves identically for a
-GPU-local hit and an external restore. The stock discriminator is the
-per-request stall-diagnostics line's **engine queue** field: an
-external restore parks the request at the LMCache lookup (~0.2 s
-queue, ~0.4 s to first output), while a GPU-local hit shows ~0.02 s /
-~0.2 s. The script records both as `a2_stall` per cell;
-`--serve-queue-threshold 0.1` marks a restored cell INVALID when its
-queue is near zero (observed values: see the table under Expected
-output). Control cells therefore cannot always prove which path
-served A2:
+A *successful* external restore logs nothing. Two independent stock
+signals identify the serve path, and they agreed cell by cell in the
+verified run (`result.json`):
+
+- Counter deltas: GPU-local cells (P0/P1) show
+  `a2_prefix_hits_delta` +40239 / `a2_external_hits_delta` 0; external
+  restores (P2/R0) show 0 / +40239; failed restores (P3/R1) show 0/0.
+- The per-request stall-diagnostics line's **engine queue** field: an
+  external restore parks the request at the LMCache lookup (~0.2 s
+  queue, ~0.4 s to first output); a GPU-local hit shows ~0.02 s /
+  ~0.2 s (the table under Expected output).
+
+The script records the counters per cell and the stall fields as
+`a2_stall` (recorded by the current script; `result.json` predates
+that field — see Files). `--serve-queue-threshold 0.1` marks a
+restored cell INVALID when its queue is near zero. Both signals
+confirm the same serve path in every cell of this run:
 
 - R0/R1 cells are structurally external (fresh process, empty prefix
   cache after the restart).
@@ -176,6 +180,13 @@ served A2:
 ## Files
 
 - `supersession_repro.py` — the reproducer (stdlib only).
+- Provenance note: `result.json` was produced by the script revision
+  immediately before the `a2_stall` / `--serve-queue-threshold`
+  additions; that diff is reporting-only (recording A2's
+  stall-diagnostics fields, and the optional threshold flag, off by
+  default) — no change to the evict step, cell logic, or the stock
+  line regexes. The serve-path table above comes from the stock stall
+  lines in `log-excerpts.md`.
 - `test_supersession_repro.py` — stock-line regexes validated against
   captured real lines + the page-count model (`ceil(tokens/page) + 8`;
   131,225 → 51, 39,966 → 22, 36,864 → 20 pages).
